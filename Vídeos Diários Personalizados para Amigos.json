@@ -1,0 +1,433 @@
+{
+  "name": "Vídeos Diários Personalizados para Amigos",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, -272],
+      "id": "trigger-daily",
+      "name": "Trigger Diário 8h"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "project-id",
+              "name": "PROJECT_ID",
+              "value": "SEU_PROJECT_ID_AQUI",
+              "type": "string"
+            },
+            {
+              "id": "location-id",
+              "name": "LOCATION_ID",
+              "value": "us-central1",
+              "type": "string"
+            },
+            {
+              "id": "api-endpoint",
+              "name": "API_ENDPOINT",
+              "value": "us-central1-aiplatform.googleapis.com",
+              "type": "string"
+            },
+            {
+              "id": "model-id",
+              "name": "MODEL_ID",
+              "value": "veo-3.1-fast-generate-preview",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [160, -272],
+      "id": "info-api",
+      "name": "Informações API"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "url-assignment",
+              "name": "URL",
+              "value": "=https://{{ $('Informações API').item.json.API_ENDPOINT }}/v1/projects/{{ $('Informações API').item.json.PROJECT_ID }}/locations/{{ $('Informações API').item.json.LOCATION_ID }}/publishers/google/models/{{ $('Informações API').item.json.MODEL_ID }}:predictLongRunning",
+              "type": "string"
+            },
+            {
+              "id": "nome-amigo",
+              "name": "nomeAmigo",
+              "value": "={{ $json.nome }}",
+              "type": "string"
+            },
+            {
+              "id": "email-amigo",
+              "name": "emailAmigo",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [672, -272],
+      "id": "preparar-dados",
+      "name": "Preparar Dados"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Preparar Dados').item.json.URL }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  endpoint: `projects/SEU_PROJECT_ID_AQUI/locations/us-central1/publishers/google/models/veo-3.1-generate-preview`,\n  instances: [\n    {\n      prompt: `Santa Claus in a cozy Christmas room with lights and decorated tree. Santa smiles at camera and says in Brazilian Portuguese: \"Ho, ho, ho! Feliz Natal, ${$('Preparar Dados').item.json.nomeAmigo}! Feliz Natal!\" Duration: 8 seconds. Style: Cinematic. Camera: Static.`\n    }\n  ],\n  parameters: {\n    aspectRatio: \"9:16\",\n    sampleCount: 1,\n    durationSeconds: 8,\n    personGeneration: \"allow_adult\",\n    addWatermark: true,\n    includeRaiReason: true,\n    generateAudio: true\n  }\n}, null, 2) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [48, -48],
+      "id": "iniciar-video",
+      "name": "Iniciar Geração do Vídeo",
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "SUA_CREDENTIAL_ID",
+          "name": "Google account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [256, -48],
+      "id": "aguardar-processamento",
+      "name": "Aguardar Processamento",
+      "webhookId": "webhook-wait-initial"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Informações API').item.json.API_ENDPOINT }}/v1/projects/{{ $('Informações API').item.json.PROJECT_ID }}/locations/{{ $('Informações API').item.json.LOCATION_ID }}/publishers/google/models/{{ $('Informações API').item.json.MODEL_ID }}:fetchPredictOperation",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  \"operationName\": $('Iniciar Geração do Vídeo').first().json.name\n}, null, 2) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [432, -48],
+      "id": "verificar-status",
+      "name": "Verificar Status",
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "SUA_CREDENTIAL_ID",
+          "name": "Google account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "video-completo",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.done }}",
+              "rightValue": ""
+            },
+            {
+              "id": "sem-erro",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "tem-video",
+              "leftValue": "={{ $json.response?.videos?.[0]?.bytesBase64Encoded || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-completo",
+      "name": "Vídeo Completo?",
+      "type": "n8n-nodes-base.if",
+      "position": [624, -48],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [48, 192],
+      "id": "aguardar-retry",
+      "name": "Aguardar Retry",
+      "webhookId": "webhook-wait-retry"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst base64Data = item.json.response.videos[0].bytesBase64Encoded;\nconst binaryData = Buffer.from(base64Data, 'base64');\n\n// Pega os dados do Preparar Dados\nconst preparaDados = $('Preparar Dados').first().json;\n\nreturn {\n  json: {\n    nomeAmigo: preparaDados.nomeAmigo,\n    emailAmigo: preparaDados.emailAmigo\n  },\n  binary: {\n    data: await this.helpers.prepareBinaryData(binaryData, 'video.mp4', 'video/mp4')\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [816, -48],
+      "id": "converter-base64",
+      "name": "Converter Base64"
+    },
+    {
+      "parameters": {
+        "name": "=={{ $json.nomeAmigo }}_{{ $now.format('YYYY-MM-DD') }}.mp4",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [992, -48],
+      "id": "upload-drive",
+      "name": "Upload no Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "SUA_CREDENTIAL_DRIVE_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "reader",
+            "type": "anyone"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1168, -48],
+      "id": "compartilhar-drive",
+      "name": "Compartilhar Arquivo",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "SUA_CREDENTIAL_DRIVE_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.emailAmigo }}",
+        "subject": "🎅 Mensagem Especial de Natal para Você!",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;\">\n  <h2 style=\"color: #c41e3a;\">🎄 Olá, {{ $json.nomeAmigo }}! 🎄</h2>\n  \n  <p style=\"font-size: 16px; line-height: 1.6;\">\n    O Papai Noel preparou uma mensagem especial para você! 🎅✨\n  </p>\n  \n  <p style=\"font-size: 16px; line-height: 1.6;\">\n    Clique no link abaixo para assistir seu vídeo personalizado:\n  </p>\n  \n  <div style=\"text-align: center; margin: 30px 0;\">\n    <a href={{ $('Upload no Drive').item.json.webContentLink }} \n       style=\"background-color: #c41e3a; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-size: 18px; display: inline-block;\">\n      🎬 Assistir Vídeo\n    </a>\n  </div>\n  \n  <p style=\"font-size: 14px; color: #666; line-height: 1.6;\">\n    Que este Natal seja repleto de alegria, amor e momentos inesquecíveis! 🎁❤️\n  </p>\n  \n  <hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">\n  \n  <p style=\"font-size: 12px; color: #999;\">\n    Mensagem enviada com carinho ❤️\n  </p>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1568, -48],
+      "id": "enviar-email",
+      "name": "Enviar Email",
+      "webhookId": "webhook-email",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "SUA_CREDENTIAL_GMAIL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      amigos: [\n        { nome: \"Nome1\", email: \"email1@exemplo.com\" },\n        { nome: \"Nome2\", email: \"email2@exemplo.com\" },\n        { nome: \"Nome3\", email: \"email3@exemplo.com\" }\n      ]\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, -272],
+      "id": "code-lista-amigos",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "nome-assignment",
+              "name": "nomeAmigo",
+              "value": "={{ $('Converter Base64').first().json.nomeAmigo }}",
+              "type": "string"
+            },
+            {
+              "id": "email-assignment",
+              "name": "emailAmigo",
+              "value": "={{ $('Converter Base64').first().json.emailAmigo }}",
+              "type": "string"
+            },
+            {
+              "id": "link-assignment",
+              "name": "videoLink",
+              "value": "={{ $('Upload no Drive').item.json.webContentLink }}",
+              "type": "string"
+            },
+            {
+              "id": "file-assignment",
+              "name": "fileId",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1376, -48],
+      "id": "preparar-email",
+      "name": "Preparar Email"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "amigos",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [496, -272],
+      "id": "separar-amigos",
+      "name": "Separar Amigos"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Trigger Diário 8h": {
+      "main": [[{"node": "Informações API", "type": "main", "index": 0}]]
+    },
+    "Informações API": {
+      "main": [[{"node": "Code in JavaScript", "type": "main", "index": 0}]]
+    },
+    "Preparar Dados": {
+      "main": [[{"node": "Iniciar Geração do Vídeo", "type": "main", "index": 0}]]
+    },
+    "Iniciar Geração do Vídeo": {
+      "main": [[{"node": "Aguardar Processamento", "type": "main", "index": 0}]]
+    },
+    "Aguardar Processamento": {
+      "main": [[{"node": "Verificar Status", "type": "main", "index": 0}]]
+    },
+    "Verificar Status": {
+      "main": [[{"node": "Vídeo Completo?", "type": "main", "index": 0}]]
+    },
+    "Vídeo Completo?": {
+      "main": [
+        [{"node": "Converter Base64", "type": "main", "index": 0}],
+        [{"node": "Aguardar Retry", "type": "main", "index": 0}]
+      ]
+    },
+    "Aguardar Retry": {
+      "main": [[{"node": "Aguardar Processamento", "type": "main", "index": 0}]]
+    },
+    "Converter Base64": {
+      "main": [[{"node": "Upload no Drive", "type": "main", "index": 0}]]
+    },
+    "Upload no Drive": {
+      "main": [[{"node": "Compartilhar Arquivo", "type": "main", "index": 0}]]
+    },
+    "Compartilhar Arquivo": {
+      "main": [[{"node": "Preparar Email", "type": "main", "index": 0}]]
+    },
+    "Enviar Email": {
+      "main": [[]]
+    },
+    "Code in JavaScript": {
+      "main": [[{"node": "Separar Amigos", "type": "main", "index": 0}]]
+    },
+    "Preparar Email": {
+      "main": [[{"node": "Enviar Email", "type": "main", "index": 0}]]
+    },
+    "Separar Amigos": {
+      "main": [[{"node": "Preparar Dados", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
